@@ -8,6 +8,10 @@ class Candle(dict):
     table_name = None
     conn = None
     connstring = None
+    
+    @property
+    def id(self):
+        return self.data[self._id_column]
 
     @classmethod
     def set_conn(cls, connstring=None):
@@ -99,4 +103,16 @@ class Candle(dict):
             WHERE %s
             """ % (cls.table_name, orclause)
             )
+        return [cls(x) for x in cursor.fetchall()]
+
+    @classmethod
+    def where(cls, conditions, joiner='AND'):
+        conditionclause = (" %s " % joiner).join(
+                ['"%s" = %s' % (k, adapt(conditions[k])) for \
+                k in conditions])
+        cursor = cls.cursor()
+        cursor.execute("""
+            SELECT * FROM "%s"
+            WHERE %s
+            """ % (cls.table_name, conditionclause))
         return [cls(x) for x in cursor.fetchall()]
