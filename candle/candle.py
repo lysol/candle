@@ -59,11 +59,34 @@ class Candle(dict):
             return self[key]
         else:
             return object.__getattribute__(self, key)
+    
+    @classmethod
+    def _fields(cls):
+        query = """
+            SELECT column_name
+            FROM information_schema 
+            WHERE table_catalog = current_database()
+            AND table_name = %s
+            """
+        cursor = cls.cursor()
+        cursor.execute(query, [cls.table_name])
+        return [r['column_name'] for r in cursor.fetchall()]
+
+    @classmethod
+    def new(cls, data={}):
+        cursor = cls.cursor()
+        fieldlist = ', '.join(['"%s"' % k for k in data.keys()])
+        insertclause = ', '.join([str(adapt(data[k])) for k in data.keys()])
+        cursor.execute("""
+            INSERT INTO %s (%s) VALUES (%s) RETURNING *
+            """ % (cls.table_name, fieldlist, insertclause))
+        return cls(cursor.fetchone())
 
     def save(self):
         cursor = self.cursor()
         updateclause = ", ".join(
-                ['"%s" = %s' % (k, adapt(self.data[k]))]
+                ['"%s" = %s' % (k, adapt(self.data[k])) for k \
+                        in self.data]
                 )
         cursor.execute("""
             UPDATE %s SET %s
