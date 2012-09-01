@@ -17,7 +17,10 @@ class Candle(dict):
     def set_conn(cls, connstring=None):
         if connstring is None:
             connstring = cls.connstring
-        cls.conn = psycopg2.connect(connstring)
+        if type(connstring) == str:
+            cls.conn = psycopg2.connect(connstring)
+        else:
+            cls.conn = connstring
 
     @classmethod
     def set_connstring(cls, connstring):
@@ -44,7 +47,6 @@ class Candle(dict):
         self.table_name = state['table_name']
         self.update(state['data'])
         self.connstring = state['connstring']
-        self.conn = state['conn']
 
     def __setattr__(self, key, val):
         if key in self:
