@@ -33,6 +33,10 @@ class Candle(dict):
         super(Candle, self).__init__(*args, **kwargs)
 
     @classmethod
+    def commit(cls):
+        cls.conn.commit()
+
+    @classmethod
     def cursor(cls):
         return cls.conn.cursor(cursor_factory=DictCursor)
 
@@ -80,7 +84,8 @@ class Candle(dict):
         cursor.execute("""
             INSERT INTO %s (%s) VALUES (%s) RETURNING *
             """ % (cls.table_name, fieldlist, insertclause))
-        return cls(cursor.fetchone())
+        result = cursor.fetchone()
+        return cls(result)
 
     def save(self):
         cursor = self.cursor()
