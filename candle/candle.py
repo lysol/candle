@@ -1,6 +1,25 @@
+from functools import wraps
 import psycopg2
 from psycopg2.extras import DictCursor
 from psycopg2.extensions import adapt
+
+
+def defaultcommit(f):
+    """Decorator function to provide behavior of committing after
+    a DML operation"""
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        commit = False
+        if 'commit' in kwargs:
+            if kwargs['commit']:
+                commit = True
+                del kwargs['commit']
+        result = f(*args, **kwargs)
+        if commit: 
+            args[0].commit()
+        return result
+    return wrapper
+
 
 class Candle(dict):
 
@@ -77,6 +96,7 @@ class Candle(dict):
         return [r['column_name'] for r in cursor.fetchall()]
 
     @classmethod
+    @defaultcommit
     def new(cls, data={}):
         cursor = cls.cursor()
         fieldlist = ', '.join(['"%s"' % k for k in data.keys()])
@@ -87,6 +107,7 @@ class Candle(dict):
         result = cursor.fetchone()
         return cls(result)
 
+    @defaultcommit
     def save(self):
         cursor = self.cursor()
         updateclause = ", ".join(
@@ -99,6 +120,7 @@ class Candle(dict):
             """ % (self.table_name, updateclause,
                 self._id_name, adapt(self.data[self._id_name])))
 
+    @defaultcommit
     def delete(self):
         cursor = self.cursor()
         cursor.execute("""
