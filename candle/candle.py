@@ -9,10 +9,10 @@ def defaultcommit(f):
     a DML operation"""
     @wraps(f)
     def wrapper(*args, **kwargs):
-        commit = False
+        commit = True 
         if 'commit' in kwargs:
             if kwargs['commit']:
-                commit = True
+                commit = kwargs['commit']
                 del kwargs['commit']
         result = f(*args, **kwargs)
         if commit: 
@@ -168,3 +168,15 @@ class Candle(dict):
             WHERE %s
             """ % (cls.table_name, conditionclause))
         return [cls(x) for x in cursor.fetchall()]
+
+    @classmethod
+    def exists(cls, conditions, joiner='AND'):
+        conditionclause = (" %s " % joiner).join(
+                ['"%s" = %s' % (k, adapt(conditions[k])) for \
+                k in conditions])
+        cursor = cls.cursor()
+        cursor.execute("""
+            SELECT EXISTS(SELECT TRUE FROM "%s"
+            WHERE %s) AS "exists" LIMIT 1
+            """ % (cls.table_name, conditionclause))
+        return cursor.fetchone()['exists']
