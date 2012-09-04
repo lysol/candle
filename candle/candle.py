@@ -21,6 +21,21 @@ def defaultcommit(f):
     return wrapper
 
 
+def enablecache(f):
+    """Decorator to cache the results of the method on first
+    execution."""
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if not hasattr(args[0], '_cache'):
+            setattr(args[0], '_cache', {})
+        elif f.__name__ in args[0]._cache:
+            return args[0]._cache[f.__name__]
+        result = f(*args, **kwargs)
+        args[0]._cache[f.__name__] = result
+        return result
+    return wrapper
+
+
 class Candle(dict):
 
     _id_column = 'id'
@@ -30,7 +45,7 @@ class Candle(dict):
     
     @property
     def id(self):
-        return self.data[self._id_column]
+        return self[self._id_column]
 
     @classmethod
     def set_conn(cls, connstring=None):
@@ -48,7 +63,6 @@ class Candle(dict):
     def __init__(self, *args, **kwargs):
         if type(self.table_name) != str:
             raise Exception("Table name is not a string: %s" % table_name)
-        self.data = {}
         super(Candle, self).__init__(*args, **kwargs)
 
     @classmethod
@@ -74,7 +88,8 @@ class Candle(dict):
     def __setattr__(self, key, val):
         if key in self:
             self[key] = val
-        elif hasattr(self, key) or key in ['table_name', 'conn', 'connstring']:
+        elif hasattr(self, key) or key in \
+            ['table_name', 'conn', 'connstring', '_cache']:
             super(Candle, self).__setattr__(key, val)
 
     def __getattr__(self, key):
@@ -82,6 +97,10 @@ class Candle(dict):
             return self[key]
         else:
             return object.__getattribute__(self, key)
+
+    def update(self, indict):
+        for key in indict:
+            setattr(self, key, indict[key])
     
     @classmethod
     def _fields(cls):
@@ -111,14 +130,14 @@ class Candle(dict):
     def save(self):
         cursor = self.cursor()
         updateclause = ", ".join(
-                ['"%s" = %s' % (k, adapt(self.data[k])) for k \
-                        in self.data]
+                ['"%s" = %s' % (k, adapt(self[k])) for k \
+                        in self]
                 )
         cursor.execute("""
             UPDATE %s SET %s
             WHERE "%s" = %s
             """ % (self.table_name, updateclause,
-                self._id_name, adapt(self.data[self._id_name])))
+                self._id_column, adapt(self[self._id_column])))
 
     @defaultcommit
     def delete(self):
@@ -126,11 +145,11 @@ class Candle(dict):
         cursor.execute("""
             DELETE FROM %s
             WHERE "%s" = %s
-            """ % (self.table_name, self._id_name,
-                adapt(self.data[self._id_column])))
+            """ % (self.table_name, self._id_column,
+                adapt(self[self._id_column])))
 
     def refresh(self):
-        self.update(self.get(self.data[self._id_column]))
+        self.update(self.get(self[self._id_column]))
 
     @classmethod
     def get(cls, id):
@@ -142,7 +161,6 @@ class Candle(dict):
             [id]
             )
         result = cursor.fetchone()
-        print result
         return cls(result)
 
     @classmethod
