@@ -1,7 +1,7 @@
 from functools import wraps
 import psycopg2
 from psycopg2.extras import DictCursor
-from psycopg2.extensions import adapt
+from psycopg2.extensions import adapt, register_adapter, AsIs
 
 
 def defaultcommit(f):
@@ -35,6 +35,14 @@ def enablecache(f):
         return result
     return wrapper
 
+
+class RawValue(str):
+    pass
+
+def adapt_raw(raw):
+    return AsIs("%s" % raw)
+
+register_adapter(RawValue, adapt_raw)
 
 class Candle(dict):
 
@@ -136,8 +144,12 @@ class Candle(dict):
         cursor.execute("""
             UPDATE %s SET %s
             WHERE "%s" = %s
+            RETURNING *
             """ % (self.table_name, updateclause,
                 self._id_column, adapt(self[self._id_column])))
+        result = cursor.fetchone()
+        for key in result.keys():
+            self[key] = result[key]
 
     @defaultcommit
     def delete(self):
@@ -147,9 +159,6 @@ class Candle(dict):
             WHERE "%s" = %s
             """ % (self.table_name, self._id_column,
                 adapt(self[self._id_column])))
-
-    def refresh(self):
-        self.update(self.get(self[self._id_column]))
 
     @classmethod
     def get(cls, id):
