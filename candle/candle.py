@@ -3,6 +3,9 @@ import psycopg2
 from psycopg2.extras import DictCursor
 from psycopg2.extensions import adapt, register_adapter, AsIs
 
+# make Nones become NULL
+register_adapter(type(None), lambda x: AsIs("NULL"))
+
 
 def defaultcommit(f):
     """Decorator function to provide behavior of committing after
@@ -40,7 +43,7 @@ class RawValue(str):
     pass
 
 def adapt_raw(raw):
-    return AsIs("%s" % raw)
+    return AsIs("%s" % raw if raw is not None else 'NULL')
 
 register_adapter(RawValue, adapt_raw)
 
