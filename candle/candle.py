@@ -188,6 +188,15 @@ class Candle(dict):
         return [cls(x) for x in cursor.fetchall()]
 
     @classmethod
+    def get_all(cls):
+        cursor = cls.cursor()
+        cursor.execute("""
+            SELECT * FROM "%s"
+            """ % cls.table_name
+            )
+        return [cls(x) for x in cursor.fetchall()]
+
+    @classmethod
     def where(cls, conditions, joiner='AND'):
         conditionclause = (" %s " % joiner).join(
                 ['"%s" = %s' % (k, adapt(conditions[k])) for \
