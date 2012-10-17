@@ -131,6 +131,7 @@ class Candle(dict):
         cursor = cls.cursor()
         fieldlist = ', '.join(['"%s"' % k for k in data.keys()])
         insertclause = ', '.join([str(adapt(data[k])) for k in data.keys()])
+        print cls.table_name, fieldlist, insertclause
         cursor.execute("""
             INSERT INTO %s (%s) VALUES (%s) RETURNING *
             """ % (cls.table_name, fieldlist, insertclause))
@@ -173,7 +174,7 @@ class Candle(dict):
             [id]
             )
         result = cursor.fetchone()
-        return cls(result)
+        return cls(result) if result is not None else None
 
     @classmethod
     def get_many(cls, ids):
