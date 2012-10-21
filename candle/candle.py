@@ -38,6 +38,19 @@ def enablecache(f):
         return result
     return wrapper
 
+def pgdef(f):
+    """Transparently return the result of a PostgreSQL function as an instance
+    of the current class."""
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        cursor = args[0].cursor()
+        data = args[1:]
+        argbuilt = ', '.join([str(adapt(arg)) for arg in data])
+        cursor.execute("""
+            SELECT * FROM "%s"(%s)
+            """ % (f.__name__, argbuilt))
+        return [args[0](res) for res in cursor.fetchall()]
+    return wrapper
 
 class RawValue(str):
     pass
@@ -47,7 +60,25 @@ def adapt_raw(raw):
 
 register_adapter(RawValue, adapt_raw)
 
+
+class MetaCandle(type):
+
+    def __getattr__(cls, key):
+        if cls._function_exists(key):
+            def dynamic_closure(*args, **kwargs):
+                cursor = cls.cursor()
+                argbuilt = ', '.join([str(adapt(arg)) for arg in args])
+                cursor.execute("""
+                    SELECT * FROM "%s"(%s)
+                    """ % (key, argbuilt))
+                return [cls(res) for res in cursor.fetchall()]
+            return dynamic_closure
+        raise AttributeError(key)
+
+
 class Candle(dict):
+
+    __metaclass__ = MetaCandle
 
     _id_column = 'id'
     table_name = None
@@ -106,8 +137,19 @@ class Candle(dict):
     def __getattr__(self, key):
         if key in self:
             return self[key]
+        elif self._function_exists(key):
+            return getattr(self.__class__, key)
         else:
             return object.__getattribute__(self, key)
+
+    @classmethod
+    def _function_exists(cls, function_name):
+        cursor = cls.cursor()
+        cursor.execute("""
+            SELECT TRUE AS "itexists" FROM pg_catalog.pg_proc
+            WHERE "proname" = %s
+            LIMIT 1""", [function_name])
+        return cursor.fetchone()['itexists']
 
     def update(self, indict):
         for key in indict:
