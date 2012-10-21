@@ -68,3 +68,23 @@ But that's not all!
             return Vet(cursor.fetchone()) # The constructor will take any dict,
                                           # Filtering columns that are not in
                                           # the table.
+
+And lastly, because we're using PostgreSQL and not some [second rate database](http://mysql.org),
+we have access to powerful user-defined database functions. Candle supports these transparently:
+
+Define this (basically useless) function:
+
+    CREATE OR REPLACE FUNCTION test_function(dogname varchar) RETURNS SETOF dogs AS $q$
+        BEGIN
+            RETURN QUERY SELECT * FROM dogs WHERE name = $1;
+            RETURN;
+        END;
+    $q$ LANGUAGE PLPGSQL IMMUTABLE;
+
+You can then do the following:
+
+    dog = Dog.test_function('steve')
+
+If a column name exists with the same name, it takes precedence. No database-side
+type checking is performed for the result, but this might change in the future
+since this information is exposed in `pg_catalog.pg_proc`.
