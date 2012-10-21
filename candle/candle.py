@@ -137,7 +137,7 @@ class Candle(dict):
     def __getattr__(self, key):
         if key in self:
             return self[key]
-        elif self._function_exists(key):
+        elif not hasattr(self, key) and self._function_exists(key):
             return getattr(self.__class__, key)
         else:
             return object.__getattribute__(self, key)
